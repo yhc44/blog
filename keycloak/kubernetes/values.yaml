@@ -1,0 +1,65 @@
+command:
+  - "/opt/keycloak/bin/kc.sh"
+  - "--verbose"
+  - "start"
+  - "--http-enabled=true"
+  - "--http-port=8080"
+  - "--hostname-strict=false"
+  - "--hostname-strict-https=false"
+  - "--spi-events-listener-jboss-logging-success-level=info"
+  - "--spi-events-listener-jboss-logging-error-level=warn"
+service:
+  type: LoadBalancer
+cache:
+  stack: custom
+
+image:
+  repository: yhc44/keycloak-kubeping
+  tag: latest
+
+extraEnv: |
+  - name: KC_CACHE_CONFIG_FILE
+    value: cache-ispn-kubeping.xml
+  - name: KEYCLOAK_ADMIN
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "keycloak.fullname" . }}-admin-creds
+        key: user
+  - name: KEYCLOAK_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "keycloak.fullname" . }}-admin-creds
+        key: password
+  - name: JAVA_OPTS_APPEND
+    value: >-
+      -XX:+UseContainerSupport
+      -XX:MaxRAMPercentage=50.0
+      -Djava.awt.headless=true
+      -Dkubeping_namespace={{ .Release.Namespace }}
+      -Dkubeping_label="keycloak-cluster=default"
+
+serviceAccount:
+  create: true
+  allowReadPods: true
+
+podLabels:
+  keycloak-cluster: default
+
+dbchecker:
+  enabled: true
+
+database:
+  vendor: postgres
+  hostname: your-db-hostname.example
+  port: dbport
+  username: dbuser
+  password: dbpass
+  database: keycloak
+
+secrets:
+  admin-creds:
+    annotations:
+      note: prod secret for {{ include "keycloak.fullname" . }}
+    stringData:
+      user: initialadminuser
+      password: supersecretpassword
